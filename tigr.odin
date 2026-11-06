@@ -17,8 +17,13 @@ any implied warranty. If it breaks, you get to keep both pieces.
 */
 package tigr
 
-@(extra_linker_flags = "-lGLU -lGL -lX11")
-foreign import lib "./libtigr.a"
+when ODIN_OS == .Linux {
+	foreign import lib {"libtigr.a", "system:GLU", "system:GL", "system:X11"}
+} else when ODIN_OS == .Windows {
+	foreign import lib {"tigr.lib", "system:opengl32", "system:gdi32"}
+} else {
+	#panic("Unsupported os.")
+}
 
 // This struct contains one pixel.
 Pixel :: [4]u8

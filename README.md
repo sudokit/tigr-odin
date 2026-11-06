@@ -1,8 +1,8 @@
 # [TIGR](https://github.com/erkkah/tigr) bindings for odin<br />
 
-Installation (only supports linux at the moment, will later add support for others. If you want yo can just edit the "tigr.odin" and change the foreign import as well as the linker flags):
+Installation (supports linux & windows, have not tested windows):
 1. Clone this repo somewhere where you can import it (for example into Odin/shared)
-2. Place your compiled static tigr lib into this repos dir
+2. Place your compiled tigr lib into this repositories directory (linux: "libtigr.a" /  windows: "tigr.lib")
 3. import it in an odin project and use
 
 Example:
