@@ -1,14 +1,13 @@
 package tigr
 
+import "core:fmt"
 import "core:strings"
 import "core:unicode/utf8"
 
 import mu "vendor:microui"
 
-import tigr "."
-
 @(private = "file")
-tigr_microui_key_map := #partial [mu.Key]tigr.Key {
+tigr_microui_key_map := #partial [mu.Key]Key {
 	.SHIFT     = .Shift,
 	.CTRL      = .Control,
 	.ALT       = .Alt,
@@ -24,28 +23,43 @@ tigr_microui_key_map := #partial [mu.Key]tigr.Key {
 @(private = "file")
 s: struct {
 	mu_ctx:            mu.Context,
-	screen:            ^tigr.Tigr,
+	screen:            ^Tigr,
 	_tigr_font_height: i32,
 	clip_rect:         [4]i32,
+	atlas:             ^Tigr,
 }
 
-mur_init :: proc(screen: ^tigr.Tigr) -> ^mu.Context {
-	s._tigr_font_height = tigr.TextHeight(tigr.tfont, "M")
+mur_init :: proc(screen: ^Tigr) -> ^mu.Context {
+	s._tigr_font_height = TextHeight(tfont, "M")
 	s.screen = screen
+
+	s.atlas = Bitmap(mu.DEFAULT_ATLAS_WIDTH, mu.DEFAULT_ATLAS_HEIGHT)
+
+	for alpha, i in mu.default_atlas_alpha {
+		x := i % mu.DEFAULT_ATLAS_WIDTH
+		y := i / mu.DEFAULT_ATLAS_WIDTH
+		color := rgba_u8(255, 255, 255, alpha)
+		Plot(s.atlas, i32(x), i32(y), color)
+	}
+
 	ctx := &s.mu_ctx
 	mu.init(ctx)
-	ctx.style.font = mu.Font(tigr.tfont)
+	ctx.style.font = mu.Font(tfont)
 	ctx.text_width = proc(font: mu.Font, str: string) -> i32 {
-		tigr_font := cast(^tigr.Font)font
-		if tigr_font == nil do tigr_font = tigr.tfont
-		return tigr.TextWidth(tigr_font, strings.clone_to_cstring(str, context.temp_allocator))
+		tigr_font := cast(^Font)font
+		if tigr_font == nil do tigr_font = tfont
+		return TextWidth(tigr_font, strings.clone_to_cstring(str, context.temp_allocator))
 	}
 	ctx.text_height = proc(font: mu.Font) -> i32 {
-		tigr_font := cast(^tigr.Font)font
-		if tigr_font == nil do tigr_font = tigr.tfont
-		return tigr.TextHeight(tigr_font, "M")
+		tigr_font := cast(^Font)font
+		if tigr_font == nil do tigr_font = tfont
+		return TextHeight(tigr_font, "M")
 	}
 	return ctx
+}
+
+mur_deinit :: proc() {
+	Free(s.atlas)
 }
 
 mur_handle_input :: proc() {
@@ -66,12 +80,12 @@ mur_handle_input :: proc() {
 	mouse_button(ctx, mpos, .RIGHT, right, lf_right)
 
 	scroll_x, scroll_y: f32
-	tigr.ScrollWheel(s.screen, &scroll_x, &scroll_y)
+	ScrollWheel(s.screen, &scroll_x, &scroll_y)
 	if scroll_x != 0 || scroll_y != 0 {
 		mu.input_scroll(ctx, i32(scroll_x), i32(-scroll_y))
 	}
 
-	c := tigr.ReadChar(s.screen)
+	c := ReadChar(s.screen)
 	if c != 0 && c >= 32 && c != 127 {
 		b, w := utf8.encode_rune(rune(c))
 		mu.input_text(ctx, string(b[:w]))
@@ -79,7 +93,7 @@ mur_handle_input :: proc() {
 
 	for tigr_key, mu_key in tigr_microui_key_map {
 		if tigr_key == {} do continue
-		down := bool(tigr.KeyHeld(s.screen, tigr_key))
+		down := bool(KeyHeld(s.screen, tigr_key))
 		if down && !last_keys[mu_key] {
 			mu.input_key_down(ctx, mu_key)
 		} else if !down && last_keys[mu_key] {
@@ -101,15 +115,15 @@ mur_draw :: proc() {
 			y1 := min(clip_r.y + clip_r.h, s.screen.h)
 			if x1 < x0 do x1 = x0
 			if y1 < y0 do y1 = y0
-			tigr.Clip(s.screen, x0, y0, x1 - x0, y1 - y0)
+			Clip(s.screen, x0, y0, x1 - x0, y1 - y0)
 		case ^mu.Command_Rect:
 			r := cmd.rect
-			tigr.Fill(s.screen, r.x, r.y, r.w, r.h, {**cmd.color})
+			Fill(s.screen, r.x, r.y, r.w, r.h, {**cmd.color})
 		case ^mu.Command_Text:
 			pos := cmd.pos
-			tigr.Print(
+			Print(
 				s.screen,
-				tigr.tfont,
+				tfont,
 				pos.x,
 				pos.y,
 				{**cmd.color},
@@ -117,19 +131,23 @@ mur_draw :: proc() {
 				strings.clone_to_cstring(cmd.str, context.temp_allocator),
 			)
 		case ^mu.Command_Icon:
+			src := mu.default_atlas[cmd.id]
+			x := cmd.rect.x + (cmd.rect.w - src.w) / 2
+			y := cmd.rect.y + (cmd.rect.h - src.h) / 2
+			BlitTint(s.screen, s.atlas, x, y, src.x, src.y, src.w, src.h, {**cmd.color})
 
 		case ^mu.Command_Jump:
 			unreachable()
 		}
 	}
 
-	tigr.Clip(s.screen, 0, 0, s.screen.w, s.screen.h)
+	Clip(s.screen, 0, 0, -1, -1)
 }
 
 // utils
 @(private = "file")
-get_mouse :: proc(screen: ^tigr.Tigr) -> (pos: [2]i32, button_state: i32) {
-	tigr.Mouse(screen, &pos.x, &pos.y, &button_state)
+get_mouse :: proc(screen: ^Tigr) -> (pos: [2]i32, button_state: i32) {
+	Mouse(screen, &pos.x, &pos.y, &button_state)
 	return
 }
 

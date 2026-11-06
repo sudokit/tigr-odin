@@ -47,7 +47,7 @@ Tigr :: struct {
 	cx, cy, cw, ch: i32, // clip rect
 	pix:            ^Pixel, // pixel data
 	handle:         rawptr, // OS window handle, NULL for off-screen bitmaps.
-	blitMode:       i32, // Target bitmap blit mode
+	blitMode:       Blit_Mode, // Target bitmap blit mode
 }
 
 @(default_calling_convention = "c", link_prefix = "tigr")
@@ -56,16 +56,16 @@ foreign lib {
 	//
 	// Title is UTF-8.
 	//
-	// In TIGR_FIXED mode, the window is made as large as possible to contain an integer-scaled
+	// In .Fixed mode, the window is made as large as possible to contain an integer-scaled
 	// version of the bitmap while still fitting on the screen. Resizing the window will adapt
 	// the scale in integer steps to fit the bitmap.
 	//
-	// In TIGR_AUTO mode, the initial window size is set to the bitmap size times the pixel
+	// In .Auto mode, the initial window size is set to the bitmap size times the pixel
 	// scale. Resizing the window will resize the bitmap using the specified scale.
 	// For example, in forced 2X mode, the window will be twice as wide (and high) as the bitmap.
 	//
-	// Turning on TIGR_RETINA mode will request full backing resolution on OSX, meaning that
-	// the effective window size might be integer scaled to a larger size. In TIGR_AUTO mode,
+	// Turning on .Retina mode will request full backing resolution on OSX, meaning that
+	// the effective window size might be integer scaled to a larger size. In .Auto mode,
 	// this means that the Tigr bitmap will change size if the window is moved between
 	// retina and non-retina screens.
 	//
@@ -83,7 +83,7 @@ foreign lib {
 	// Displays a window's contents on-screen and updates input.
 	Update :: proc(bmp: ^Tigr) ---
 
-	// Called before doing direct OpenGL calls and before tigrUpdate.
+	// Called before doing direct OpenGL calls and before Update.
 	// Returns non-zero if OpenGL is available.
 	BeginOpenGL :: proc(bmp: ^Tigr) -> bool ---
 
@@ -123,26 +123,26 @@ foreign lib {
 	Line :: proc(bmp: ^Tigr, x0: i32, y0: i32, x1: i32, y1: i32, color: Pixel) ---
 
 	// Draws an empty rectangle.
-	// Drawing a 1x1 rectangle yields the same result as calling tigrPlot.
+	// Drawing a 1x1 rectangle yields the same result as calling Plot.
 	// Clips and blends.
 	Rect :: proc(bmp: ^Tigr, x: i32, y: i32, w: i32, h: i32, color: Pixel) ---
 
 	// Fills a rectangle.
 	// Fills the inside of the specified rectangular area.
-	// Calling tigrRect followed by tigrFillRect using the same arguments
+	// Calling Rect followed by FillRect using the same arguments
 	// causes no overdrawing.
 	// Clips and blends.
 	FillRect :: proc(bmp: ^Tigr, x: i32, y: i32, w: i32, h: i32, color: Pixel) ---
 
 	// Draws a circle.
-	// Drawing a zero radius circle yields the same result as calling tigrPlot.
+	// Drawing a zero radius circle yields the same result as calling Plot.
 	// Drawing a circle with radius one draws a circle three pixels wide.
 	// Clips and blends.
 	Circle :: proc(bmp: ^Tigr, x: i32, y: i32, r: i32, color: Pixel) ---
 
 	// Fills a circle.
 	// Fills the inside of the specified circle.
-	// Calling tigrCircle followed by tigrFillCircle using the same arguments
+	// Calling Circle followed by FillCircle using the same arguments
 	// causes no overdrawing.
 	// Filling a circle with zero radius has no effect.
 	// Clips and blends.
@@ -161,21 +161,21 @@ foreign lib {
 	// Clips, does not blend.
 	Blit :: proc(dest: ^Tigr, src: ^Tigr, dx: i32, dy: i32, sx: i32, sy: i32, w: i32, h: i32) ---
 
-	// Same as tigrBlit, but alpha blends the source bitmap with the
+	// Same as Blit, but alpha blends the source bitmap with the
 	// target using per pixel alpha and the specified global alpha.
 	//
 	// Ablend = Asrc * alpha
 	// RGBdest = RGBsrc * Ablend + RGBdest * (1 - Ablend)
 	//
-	// Blit mode == TIGR_KEEP_ALPHA:
+	// Blit mode == .Keep_Alpha:
 	// Adest = Adest
 	//
-	// Blit mode == TIGR_BLEND_ALPHA:
+	// Blit mode == .Blend_Alpha:
 	// Adest = Asrc * Ablend + Adest * (1 - Ablend)
 	// Clips and blends.
 	BlitAlpha :: proc(dest: ^Tigr, src: ^Tigr, dx: i32, dy: i32, sx: i32, sy: i32, w: i32, h: i32, alpha: f32) ---
 
-	// Same as tigrBlit, but tints the source bitmap with a color
+	// Same as Blit, but tints the source bitmap with a color
 	// and alpha blends the resulting source with the destination.
 	//
 	// Rblend = Rsrc * Rtint
@@ -185,10 +185,10 @@ foreign lib {
 	//
 	// RGBdest = RGBblend * Ablend + RGBdest * (1 - Ablend)
 	//
-	// Blit mode == TIGR_KEEP_ALPHA:
+	// Blit mode == .Keep_Alpha:
 	// Adest = Adest
 	//
-	// Blit mode == TIGR_BLEND_ALPHA:
+	// Blit mode == .Blend_Alpha:
 	// Adest = Ablend * Ablend + Adest * (1 - Ablend)
 	// Clips and blends.
 	BlitTint :: proc(dest: ^Tigr, src: ^Tigr, dx: i32, dy: i32, sx: i32, sy: i32, w: i32, h: i32, tint: Pixel) ---
@@ -241,7 +241,7 @@ foreign lib {
 	// for the given codepage, excluding the first 32 control codes.
 	//
 	// For UTF32 - the font bitmap contains a subset of Unicode characters
-	// and must be in the format generated by tigrFont for UTF32.
+	// and must be in the format generated by Font for UTF32.
 	//
 	LoadFont :: proc(bitmap: ^Tigr, codepage: Codepage) -> ^Font ---
 
@@ -251,7 +251,7 @@ foreign lib {
 	// Prints UTF-8 text onto a bitmap.
 	// NOTE:
 	//  This uses the target bitmap blit mode.
-	//  See tigrBlitTint for details.
+	//  See BlitTint for details.
 	Print :: proc(dest: ^Tigr, font: ^Font, x: i32, y: i32, color: Pixel, text: cstring, #c_vararg _: ..any) ---
 
 	// Returns the width/height of a string.
@@ -357,7 +357,7 @@ foreign lib {
 
 	// Reads the keyboard for a window.
 	// Returns non-zero if a key is pressed/held.
-	// tigrKeyDown tests for the initial press, tigrKeyHeld repeats each frame.
+	// KeyDown tests for the initial press, KeyHeld repeats each frame.
 	KeyDown :: proc(bmp: ^Tigr, key: Key) -> bool ---
 	KeyHeld :: proc(bmp: ^Tigr, key: Key) -> bool ---
 
